@@ -80,7 +80,7 @@ under the License.
 		<module>flink-dist</module>
 		<module>flink-dist-scala</module>
 		<module>flink-metrics</module>
-		<module>flink-yarn</module>
+<!--		<module>flink-yarn</module>-->
 <!--		<module>flink-yarn-tests</module>-->
 		<module>flink-fs-tests</module>
 		<module>flink-docs</module>
