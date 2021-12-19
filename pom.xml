@@ -82,7 +82,7 @@ under the License.
 <!--		<module>flink-metrics</module>-->
 <!--		<module>flink-yarn</module>-->
 <!--		<module>flink-yarn-tests</module>-->
-		<module>flink-fs-tests</module>
+<!--		<module>flink-fs-tests</module>-->
 		<module>flink-docs</module>
 <!--		<module>flink-python</module>-->
 		<module>flink-walkthroughs</module>
