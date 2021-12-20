@@ -34,7 +34,7 @@ under the License.
 	<packaging>pom</packaging>
 
 	<modules>
-		<module>flink-external-resource-gpu</module>
+<!--		<module>flink-external-resource-gpu</module>-->
 	</modules>
 
 </project>
