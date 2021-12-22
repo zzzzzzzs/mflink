@@ -1127,6 +1127,7 @@ public class StreamExecutionEnvironment {
 
         TypeInformation<OUT> typeInfo;
         try {
+            // 提起数据的类型信息
             typeInfo = TypeExtractor.getForObject(data[0]);
         } catch (Exception e) {
             throw new RuntimeException(
@@ -1228,9 +1229,11 @@ public class StreamExecutionEnvironment {
         Preconditions.checkNotNull(data, "Collection must not be null");
 
         // must not have null elements and mixed elements
+        // 检查元素集合，不能有空元素和混合元素
         FromElementsFunction.checkCollection(data, typeInfo.getTypeClass());
 
         SourceFunction<OUT> function = new FromElementsFunction<>(data);
+        // 加载数据用，设置为有界流，同时并行度设置为1
         return addSource(function, "Collection Source", typeInfo, Boundedness.BOUNDED)
                 .setParallelism(1);
     }
@@ -1859,6 +1862,7 @@ public class StreamExecutionEnvironment {
             final String sourceName,
             @Nullable final TypeInformation<OUT> typeInfo,
             final Boundedness boundedness) {
+        // 检查空值
         checkNotNull(function);
         checkNotNull(sourceName);
         checkNotNull(boundedness);
@@ -1866,8 +1870,9 @@ public class StreamExecutionEnvironment {
         TypeInformation<OUT> resolvedTypeInfo =
                 getTypeInfo(function, sourceName, SourceFunction.class, typeInfo);
 
+        // 判断是否属于并行流数据源
         boolean isParallel = function instanceof ParallelSourceFunction;
-
+        // 将addSource的
         clean(function);
 
         final StreamSource<OUT, ?> sourceOperator = new StreamSource<>(function);
@@ -2184,6 +2189,7 @@ public class StreamExecutionEnvironment {
     /**
      * Returns a "closure-cleaned" version of the given function. Cleans only if closure cleaning is
      * not disabled in the {@link org.apache.flink.api.common.ExecutionConfig}
+     * 闭包检测
      */
     @Internal
     public <F> F clean(F f) {
