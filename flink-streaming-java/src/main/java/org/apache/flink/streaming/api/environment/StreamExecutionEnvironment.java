@@ -1127,7 +1127,7 @@ public class StreamExecutionEnvironment {
 
         TypeInformation<OUT> typeInfo;
         try {
-            // 提起数据的类型信息
+            // 提取数据的类型信息
             typeInfo = TypeExtractor.getForObject(data[0]);
         } catch (Exception e) {
             throw new RuntimeException(
@@ -1872,7 +1872,6 @@ public class StreamExecutionEnvironment {
 
         // 判断是否属于并行流数据源
         boolean isParallel = function instanceof ParallelSourceFunction;
-        // 将addSource的
         clean(function);
 
         final StreamSource<OUT, ?> sourceOperator = new StreamSource<>(function);

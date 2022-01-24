@@ -36,6 +36,7 @@ public class WordCount1 {
     }
 
     public static void main(String[] args) throws Exception {
+        // 这种构建对象为什么，细节还是没有理解
         new WordCount1().runProgram();
     }
 }
