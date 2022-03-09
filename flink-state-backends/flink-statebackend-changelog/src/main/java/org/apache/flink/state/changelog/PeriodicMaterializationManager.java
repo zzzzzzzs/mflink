@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.util.Optional;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -131,6 +132,7 @@ class PeriodicMaterializationManager implements Closeable {
                                 () ->
                                         asyncMaterializationPhase(
                                                 runnable.getMaterializationRunnable(),
+                                                runnable.getMaterializationID(),
                                                 runnable.getMaterializedTo()));
                     } else {
                         scheduleNextMaterialization();
@@ -147,6 +149,7 @@ class PeriodicMaterializationManager implements Closeable {
 
     private void asyncMaterializationPhase(
             RunnableFuture<SnapshotResult<KeyedStateHandle>> materializedRunnableFuture,
+            long materializationID,
             SequenceNumber upTo) {
 
         uploadSnapshot(materializedRunnableFuture)
@@ -159,11 +162,15 @@ class PeriodicMaterializationManager implements Closeable {
                                 mailboxExecutor.execute(
                                         () ->
                                                 keyedStateBackend.updateChangelogSnapshotState(
-                                                        snapshotResult, upTo),
+                                                        snapshotResult, materializationID, upTo),
                                         "Task {} update materializedSnapshot up to changelog sequence number: {}",
                                         subtaskName,
                                         upTo);
 
+                                scheduleNextMaterialization();
+                            } else if (throwable instanceof CancellationException) {
+                                // can happen e.g. due to task cancellation
+                                LOG.info("materialization cancelled", throwable);
                                 scheduleNextMaterialization();
                             } else {
                                 // if failed
@@ -255,6 +262,8 @@ class PeriodicMaterializationManager implements Closeable {
     static class MaterializationRunnable {
         private final RunnableFuture<SnapshotResult<KeyedStateHandle>> materializationRunnable;
 
+        private final long materializationID;
+
         /**
          * The {@link SequenceNumber} up to which the state is materialized, exclusive. This
          * indicates the non-materialized part of the current changelog.
@@ -263,9 +272,11 @@ class PeriodicMaterializationManager implements Closeable {
 
         public MaterializationRunnable(
                 RunnableFuture<SnapshotResult<KeyedStateHandle>> materializationRunnable,
+                long materializationID,
                 SequenceNumber materializedTo) {
             this.materializationRunnable = materializationRunnable;
             this.materializedTo = materializedTo;
+            this.materializationID = materializationID;
         }
 
         RunnableFuture<SnapshotResult<KeyedStateHandle>> getMaterializationRunnable() {
@@ -274,6 +285,10 @@ class PeriodicMaterializationManager implements Closeable {
 
         SequenceNumber getMaterializedTo() {
             return materializedTo;
+        }
+
+        public long getMaterializationID() {
+            return materializationID;
         }
     }
 }

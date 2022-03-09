@@ -168,10 +168,10 @@ public class StreamExecutionEnvironment {
     // ------------------------------------------------------------------------
 
     /** The execution configuration for this environment. */
-    private final ExecutionConfig config = new ExecutionConfig();
+    protected final ExecutionConfig config = new ExecutionConfig();
 
     /** Settings that control the checkpointing behavior. */
-    private final CheckpointConfig checkpointCfg = new CheckpointConfig();
+    protected final CheckpointConfig checkpointCfg = new CheckpointConfig();
 
     protected final List<Transformation<?>> transformations = new ArrayList<>();
 
@@ -264,7 +264,7 @@ public class StreamExecutionEnvironment {
                 userClassloader == null ? getClass().getClassLoader() : userClassloader;
 
         // the configuration of a job or an operator can be specified at the following places:
-        //     i) at the operator level using e.g. parallelism using the
+        //     i) at the operator level via e.g. parallelism by using the
         // SingleOutputStreamOperator.setParallelism().
         //     ii) programmatically by using e.g. the env.setRestartStrategy() method
         //     iii) in the configuration passed here
@@ -481,7 +481,7 @@ public class StreamExecutionEnvironment {
      * <p>The job draws checkpoints periodically, in the given interval. The state will be stored in
      * the configured state backend.
      *
-     * <p>NOTE: Checkpointing iterative streaming dataflows in not properly supported at the moment.
+     * <p>NOTE: Checkpointing iterative streaming dataflows is not properly supported at the moment.
      * For that reason, iterative jobs will not be started if used with enabled checkpointing. To
      * override this mechanism, use the {@link #enableCheckpointing(long, CheckpointingMode,
      * boolean)} method.
@@ -502,7 +502,7 @@ public class StreamExecutionEnvironment {
      * {@link CheckpointingMode} for the checkpointing ("exactly once" vs "at least once"). The
      * state will be stored in the configured state backend.
      *
-     * <p>NOTE: Checkpointing iterative streaming dataflows in not properly supported at the moment.
+     * <p>NOTE: Checkpointing iterative streaming dataflows is not properly supported at the moment.
      * For that reason, iterative jobs will not be started if used with enabled checkpointing. To
      * override this mechanism, use the {@link #enableCheckpointing(long, CheckpointingMode,
      * boolean)} method.
@@ -525,7 +525,7 @@ public class StreamExecutionEnvironment {
      * <p>The job draws checkpoints periodically, in the given interval. The state will be stored in
      * the configured state backend.
      *
-     * <p>NOTE: Checkpointing iterative streaming dataflows in not properly supported at the moment.
+     * <p>NOTE: Checkpointing iterative streaming dataflows is not properly supported at the moment.
      * If the "force" parameter is set to true, the system will execute the job nonetheless.
      *
      * @param interval Time interval between state checkpoints in millis.
@@ -555,7 +555,7 @@ public class StreamExecutionEnvironment {
      * <p>The job draws checkpoints periodically, in the default interval. The state will be stored
      * in the configured state backend.
      *
-     * <p>NOTE: Checkpointing iterative streaming dataflows in not properly supported at the moment.
+     * <p>NOTE: Checkpointing iterative streaming dataflows is not properly supported at the moment.
      * For that reason, iterative jobs will not be started if used with enabled checkpointing. To
      * override this mechanism, use the {@link #enableCheckpointing(long, CheckpointingMode,
      * boolean)} method.
@@ -1127,7 +1127,6 @@ public class StreamExecutionEnvironment {
 
         TypeInformation<OUT> typeInfo;
         try {
-            // 提取数据的类型信息
             typeInfo = TypeExtractor.getForObject(data[0]);
         } catch (Exception e) {
             throw new RuntimeException(
@@ -1141,7 +1140,7 @@ public class StreamExecutionEnvironment {
     }
 
     /**
-     * Creates a new data set that contains the given elements. The framework will determine the
+     * Creates a new data stream that contains the given elements. The framework will determine the
      * type according to the based type user supplied. The elements should be the same or be the
      * subclass to the based type. The sequence of elements must not be empty. Note that this
      * operation will result in a non-parallel data stream source, i.e. a data stream source with a
@@ -1229,11 +1228,9 @@ public class StreamExecutionEnvironment {
         Preconditions.checkNotNull(data, "Collection must not be null");
 
         // must not have null elements and mixed elements
-        // 检查元素集合，不能有空元素和混合元素
         FromElementsFunction.checkCollection(data, typeInfo.getTypeClass());
 
         SourceFunction<OUT> function = new FromElementsFunction<>(data);
-        // 加载数据用，设置为有界流，同时并行度设置为1
         return addSource(function, "Collection Source", typeInfo, Boundedness.BOUNDED)
                 .setParallelism(1);
     }
@@ -1862,7 +1859,6 @@ public class StreamExecutionEnvironment {
             final String sourceName,
             @Nullable final TypeInformation<OUT> typeInfo,
             final Boundedness boundedness) {
-        // 检查空值
         checkNotNull(function);
         checkNotNull(sourceName);
         checkNotNull(boundedness);
@@ -1870,8 +1866,8 @@ public class StreamExecutionEnvironment {
         TypeInformation<OUT> resolvedTypeInfo =
                 getTypeInfo(function, sourceName, SourceFunction.class, typeInfo);
 
-        // 判断是否属于并行流数据源
         boolean isParallel = function instanceof ParallelSourceFunction;
+
         clean(function);
 
         final StreamSource<OUT, ?> sourceOperator = new StreamSource<>(function);
@@ -1897,7 +1893,7 @@ public class StreamExecutionEnvironment {
      * @param <OUT> type of the returned stream
      * @return the data stream constructed
      */
-    @Experimental
+    @PublicEvolving
     public <OUT> DataStreamSource<OUT> fromSource(
             Source<OUT, ?, ?> source,
             WatermarkStrategy<OUT> timestampsAndWatermarks,
@@ -2163,7 +2159,10 @@ public class StreamExecutionEnvironment {
                     "No operators defined in streaming topology. Cannot execute.");
         }
 
-        return new StreamGraphGenerator(transformations, config, checkpointCfg, configuration)
+        // We copy the transformation so that newly added transformations cannot intervene with the
+        // stream graph generation.
+        return new StreamGraphGenerator(
+                        new ArrayList<>(transformations), config, checkpointCfg, configuration)
                 .setStateBackend(defaultStateBackend)
                 .setChangelogStateBackendEnabled(changelogStateBackendEnabled)
                 .setSavepointDir(defaultSavepointDirectory)
@@ -2188,7 +2187,6 @@ public class StreamExecutionEnvironment {
     /**
      * Returns a "closure-cleaned" version of the given function. Cleans only if closure cleaning is
      * not disabled in the {@link org.apache.flink.api.common.ExecutionConfig}
-     * 闭包检测
      */
     @Internal
     public <F> F clean(F f) {
@@ -2482,6 +2480,19 @@ public class StreamExecutionEnvironment {
                         name, new DistributedCache.DistributedCacheEntry(filePath, executable)));
     }
 
+    /**
+     * Checks whether it is currently permitted to explicitly instantiate a LocalEnvironment or a
+     * RemoteEnvironment.
+     *
+     * @return True, if it is possible to explicitly instantiate a LocalEnvironment or a
+     *     RemoteEnvironment, false otherwise.
+     */
+    @Internal
+    public static boolean areExplicitEnvironmentsAllowed() {
+        return contextEnvironmentFactory == null
+                && threadLocalContextEnvironmentFactory.get() == null;
+    }
+
     // Private helpers.
     @SuppressWarnings("unchecked")
     private <OUT, T extends TypeInformation<OUT>> T getTypeInfo(
@@ -2503,5 +2514,10 @@ public class StreamExecutionEnvironment {
             }
         }
         return (T) resolvedTypeInfo;
+    }
+
+    @Internal
+    public List<Transformation<?>> getTransformations() {
+        return transformations;
     }
 }
